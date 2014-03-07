@@ -1,0 +1,32 @@
+package flappy;
+
+import java.awt.Rectangle;
+
+public class Floor{
+	
+	int y = 0;
+	int x =0;
+	int offset = 5;
+	
+	public void updatePosition() {
+		if(x < -383){
+			x = 0;
+		}
+		x -= offset;	
+	}
+	
+	public int getX()
+	{
+		return this.x;
+	}
+	
+	public Floor(int y)
+	{
+		this.y = y;
+	}
+	
+	public boolean collides(Rectangle bounds)
+	{
+		return bounds.y + bounds.getHeight() > this.y;
+	}
+}
