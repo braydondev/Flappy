@@ -1,0 +1,349 @@
+package flappy;
+
+import java.applet.Applet;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
+
+@SuppressWarnings("serial")
+public class FlappyApplet extends Applet implements Runnable {
+
+	private Doge doge;
+	private Floor floor;
+	private Obstacle obstacle, obstacle2;
+
+	int w = 288, h = 512; // height and width of screen
+	private Image image;
+	private Graphics second;
+	public boolean dead = false;
+	public boolean paused = true;
+
+	BufferedImage background;
+	BufferedImage floorImage;
+	BufferedImage gameOver, flappyTitle, scoreScreen, playButton, getReady, instructions;
+	BufferedImage deadDoge;
+	BufferedImage bronzeMedal, silverMedal, goldMedal, platinumMedal;
+	BufferedImage doge1, doge2, doge3;
+	private int whichDoge = 0;
+	private int titleDogeOffset = 0, titleDogeGravity = -2;
+	
+	private boolean firstRun = true, instructionScreen = false;
+	int score = 0;
+	int highScore = 0;
+
+	int floorHeight = 0;
+
+	@Override
+	public void init() {
+		loadImages();
+
+		floorHeight = floorImage.getHeight();
+		doge = new Doge();
+		floor = new Floor(this.h - floorHeight);
+		
+		//initialize the two obstacles out of sight of the window
+		obstacle = new Obstacle(this.w, this.h, this.w, 0, floorHeight);
+		obstacle2 = new Obstacle(this.w, this.h, this.w, 0, floorHeight);
+		
+		Frame frame = (Frame) this.getParent().getParent();
+		frame.setTitle("Flappy Doge");
+		this.setSize(this.w, this.h);
+		this.setVisible(true);
+	}
+
+	@Override
+	public void start() {
+
+		this.addMouseListener(new MouseAdapter() {
+
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if(firstRun || dead)
+				{
+					instructionScreen = true;
+					firstRun = false;
+					dead = false;
+				}
+				
+				else
+				{	
+					instructionScreen = false;
+					firstRun = false;
+					paused = false;
+					doge.jump();
+				}
+			}
+		});
+
+		Thread thread = new Thread(this);
+		thread.start();
+	}
+
+	@Override
+	public void stop() {
+
+	}
+
+	@Override
+	public void destroy() {
+
+	}
+
+	public void resetDoge() {
+		doge.setY((this.h - floorHeight) / 2);
+		doge.setX(50);
+		doge.setSpeed(0);
+		obstacle.setX(this.w + 40);
+		obstacle.setRandomY();
+		obstacle2.setX(this.w + 280);
+		obstacle2.setRandomY();
+	}
+
+	@Override
+	public void run() {
+
+		while (true) {
+
+			if (firstRun) {
+				repaint();
+			}
+			
+			if (instructionScreen) {
+				repaint();
+				resetDoge();
+				score = 0;
+			}
+
+			while (!paused) {
+
+				if (doge.outOfBounds() || floor.collides(doge.getBounds())
+						|| obstacle.collides(doge.getBounds()) || obstacle2.collides(doge.getBounds())) {
+					if (score > highScore) {
+						highScore = score;
+					}
+					paused = true;
+					dead = true;
+					deathAnimation();
+				}
+
+				else  {
+					floor.updatePosition();
+					doge.updatePosition();
+					obstacle.updatePosition();
+					obstacle2.updatePosition();
+					if (obstacle.getX() + obstacle.getWidth() < doge.getX()
+							&& !obstacle.hasPassed()) {
+						score++;
+					}
+					if (obstacle2.getX() + obstacle2.getWidth() < doge.getX()
+							&& !obstacle2.hasPassed()) {
+						score++;
+					}
+					repaint();
+					try {
+						Thread.sleep(40);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	@Override
+	public void update(Graphics g) {
+		if (image == null) {
+			image = createImage(this.getWidth(), this.getHeight());
+			second = image.getGraphics();
+		}
+
+		paint(second);
+		g.drawImage(image, 0, 0, this);
+	}
+
+	@Override
+	public void paint(Graphics g) {
+
+		g.setFont(new Font("Comic Sans MS", 1, 24));
+		g.setColor(Color.WHITE);
+		
+		g.drawImage(background, 0, 0, this);
+		g.drawImage(floorImage, floor.getX(), this.h - floorHeight, this);
+		
+		obstacle.paint(g);
+		obstacle2.paint(g);
+
+		if (!paused) {
+			doge.paint(g);
+			g.drawString("" + score, this.w / 2 - g.getFont().getSize() / 2, 50);
+		}
+
+		if (paused) {
+			if (firstRun) {
+				g.drawImage(flappyTitle, centerImage(flappyTitle),
+						100, flappyTitle.getWidth(),
+						flappyTitle.getHeight(), null);
+				
+				g.drawImage(getTitleDogeImage(), centerImage(doge1), 120 + flappyTitle.getHeight() - titleDogeHeightOffset(), this);
+				
+				g.drawImage(playButton, centerImage(playButton),
+						140 + flappyTitle.getHeight() + doge1.getHeight(),
+						playButton.getWidth(), playButton.getHeight(), null);
+			}
+			
+			else if (instructionScreen)
+			{
+				g.drawString("" + score, this.w / 2 - g.getFont().getSize() / 2, 50);
+				g.drawImage(getReady, centerImage(getReady),
+						100, getReady.getWidth(),
+						getReady.getHeight(), null);
+				
+				g.drawImage(instructions, centerImage(instructions),
+						120 + getReady.getHeight(), instructions.getWidth(),
+						instructions.getHeight(), null);
+				
+				g.drawImage(doge.getImage(), doge.getX(), doge.getY(), this);
+			}
+
+			else if (dead) {
+				g.drawImage(gameOver, centerImage(gameOver), 50,
+						gameOver.getWidth(), gameOver.getHeight(), null);
+				g.drawImage(scoreScreen, centerImage(scoreScreen),
+						70 + gameOver.getHeight(), scoreScreen.getWidth(),
+						scoreScreen.getHeight(), null);
+				g.drawImage(playButton, centerImage(playButton),
+						90 + gameOver.getHeight() + scoreScreen.getHeight(),
+						playButton.getWidth(), playButton.getHeight(), null);
+				g.drawImage(deadDoge, doge.getX(), doge.getY(), this);
+
+				if (score >= 10) {
+					g.drawImage(getMedal(), 56, 150, this);
+				}
+
+				//Draws score and high score aligned to the score and high score menu labels
+				g.drawString("" + score, 220 - ((int) Math.log10(score)
+						* g.getFont().getSize() / 2), 160);
+				g.drawString("" + highScore, 220 - ((int) Math.log10(highScore)
+						* g.getFont().getSize() / 2), 200);
+			}
+		}
+	}
+
+	public void loadImages() {
+		try {
+			gameOver = ImageIO.read(new File("over.png"));
+			background = ImageIO.read(new File("background.png"));
+			floorImage = ImageIO.read(new File("floor.png"));
+			flappyTitle = ImageIO.read(new File("flappytitle.png"));
+			scoreScreen = ImageIO.read(new File("scorescreen.png"));
+			playButton = ImageIO.read(new File("playButton.png"));
+			getReady = ImageIO.read(new File("getready.png"));
+			instructions = ImageIO.read(new File("instructions.png"));
+			
+			bronzeMedal = ImageIO.read(new File("bronzemedal.png"));
+			silverMedal = ImageIO.read(new File("silvermedal.png"));
+			goldMedal = ImageIO.read(new File("goldmedal.png"));
+			platinumMedal = ImageIO.read(new File("platinummedal.png"));
+			
+			deadDoge = ImageIO.read(new File("deadDoge.png"));
+			doge1 = ImageIO.read(new File("doge1.png"));
+			doge2 = ImageIO.read(new File("doge2.png"));
+			doge3 = ImageIO.read(new File("doge3.png"));
+			
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+	}
+
+	private void deathAnimation() {
+		Graphics g = this.getGraphics();
+
+		// Screen flashes white and then doge falls to ground
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, this.w, this.h);
+
+		try {
+			Thread.sleep(40);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		doge.setY(this.h - floorHeight - deadDoge.getHeight());
+
+		repaint();
+	}
+
+	private BufferedImage getMedal() {
+		if (score >= 40) {
+			return platinumMedal;
+		}
+
+		if (score >= 30) {
+			return goldMedal;
+		}
+
+		if (score >= 20) {
+			return silverMedal;
+		}
+
+		return bronzeMedal;
+	}
+	
+	//Makes the doge on the title screen wag its tail
+	private BufferedImage getTitleDogeImage() {
+		
+		whichDoge++;
+		
+		switch (whichDoge)
+		{
+			case 1:
+				return doge1;
+
+			case 2:
+				return doge2;
+
+			default:
+				whichDoge = 0;
+				return doge3;
+		}
+	}
+	
+	//Makes the doge on the title screen bob up and down
+	private int titleDogeHeightOffset()
+	{
+		if(titleDogeOffset > 6)
+		{
+			titleDogeGravity = -2;
+		}
+		
+		if(titleDogeOffset < -6)
+		{
+			titleDogeGravity = 2;
+		}
+		
+		titleDogeOffset += titleDogeGravity;
+		
+		return titleDogeOffset;
+	}
+	
+	//Returns the x coordinate of the image to be centered
+	private int centerImage(BufferedImage img)
+	{
+		return (this.w - img.getWidth()) / 2;
+	}
+}
